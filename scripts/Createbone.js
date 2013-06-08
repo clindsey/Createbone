@@ -139,7 +139,7 @@
       case 1: while(++i < l) (ev = events[i]).callback.call(ev.ctx, a1); return;
       case 2: while(++i < l) (ev = events[i]).callback.call(ev.ctx, a1, a2); return;
       case 3: while(++i < l) (ev = events[i]).callback.call(ev.ctx, a1, a2, a3); return;
-      default: while(++i < l) (ev = events[i]).callback.call(ev.ctx, args); return;
+      default: while(++i < l) (ev = events[i]).callback.apply(ev.ctx, args);
     }
   }
 
@@ -160,4 +160,225 @@
   Events.unbind = Events.off;
 
   _.extend(Createbone, Events);
+
+  var Model = Createbone.Model = function (attributes, options) {
+    var defaults
+      , attrs = attributes || {};
+
+    options || (options = {});
+
+    this.cid = _.uniqueId("c");
+    this.attributes = {};
+
+    _.extend(this, _.pick(options, modelOptions));
+
+    if (options.parse) attrs = this.parse(attrs, options) || {};
+    if (defaults = _.result(this, "defaults")) {
+      attrs = _.defaults({}, attrs, defaults);
+    }
+    this.set(attrs, options);
+    this.changed = {};
+    this.initialize.apply(this, arguments);
+  }
+
+  var modelOptions = [ "collection" ];
+
+  _.extend(Model.prototype, Events, {
+    changed: undefined
+
+  , validationError: undefined
+
+  , idAttribute: "id"
+
+  , initialize: function () {}
+
+  , toJSON: function (options) {
+      return _.clone(this.attributes);
+    }
+
+  , get: function (attr) {
+      return this.attributes[attr];
+    }
+
+  , escape: function (attr) {
+      return _.escape(this.get(attr));
+    }
+
+  , has: function (attr) {
+      return this.get(attr) != undefined;
+    }
+
+  , set: function (key, val, options) {
+      var attr
+        , attrs
+        , unset
+        , changes
+        , silent
+        , changing
+        , prev
+        , current;
+
+      if (key == undefined) return this;
+
+      if (typeof key === "object") {
+        attrs = key;
+        options = val;
+      } else {
+        (attrs = {})[key] = val;
+      }
+
+      options || (options = {});
+
+      if (!this._validate(attrs, options)) return false;
+
+      unset = options.unset;
+      silent = options.silent;
+      changes = [];
+      changing = this._changing;
+      this._changing = true;
+
+      if (!changing) {
+        this._previousAttributes = _.clone(this.attributes);
+        this.changed = {};
+      }
+      current = this.attributes;
+      prev = this._previousAttributes;
+
+      if (this.idAttribute in attrs) this.id = attrs[this.idAttribute];
+
+      for (attr in attrs) {
+        val = attrs[attr];
+        if (!_.isEqual(current[attr], val)) changes.push(attr);
+        if (!_.isEqual(prev[attr], val)) {
+          this.changed[attr] = val;
+        } else {
+          delete this.changed[attr];
+        }
+        unset ? delete current[attr] : current[attr] = val;
+      }
+
+      if (!silent) {
+        if (changes.length) this._pending = true;
+        for (var i = 0, l = changes.length; i < l; i += 1) {
+          this.trigger("change:" + changes[i], this, current[changes[i]], options);
+        }
+      }
+
+      if (changing) return this;
+      if (!silent) {
+        while (this._pending) {
+          this._pending = false;
+          this.trigger("change", this, options);
+        }
+      }
+
+      this._pending = false;
+      this._changing = false;
+      return this;
+    }
+
+  , unset: function (attr, options) {
+      return this.set(attr, undefined, _.extend({}, options, { unset: true }));
+    }
+
+  , clear: function (options) {
+      var attrs = {};
+      for (var key in this.attributes) attrs[key] = undefined;
+      return this.set(attrs, _.extend({}, options, { unset: true }));
+    }
+
+  , hasChanged: function (attr) {
+      if (attr == undefined) return !_.isEmpty(this.changed);
+      return _.has(this.changed, attr);
+    }
+
+  , changedAttributes: function (diff) {
+      if (!diff) return this.hasChanged() ? _.clone(this.changed) : false;
+      var val
+        , changed = false
+        , old = this._changing ? this._previousAttributes : this.attributes;
+      for (var attr in diff) {
+        if (_.isEqual(old[attr], (val = diff[attr]))) continue;
+        (changed || (changed = {}))[attr] = val;
+      }
+      return changed;
+    }
+
+  , previous: function (attr) {
+      if (attr == undefined || !this._previousAttributes) return undefined;
+      return this._previousAttributes[attr];
+    }
+
+  , previousAttributes: function () {
+      return _.clone(this._previousAttributes);
+    }
+
+  , parse: function (resp, options) {
+      return resp;
+    }
+
+  , clone: function () {
+      return new this.constructor(this.attributes);
+    }
+
+  , isNew: function () {
+      return this.id == undefined;
+    }
+
+  , isValid: function (options) {
+      return this._validate({}, _.extend(options || {}, { validate: true }));
+    }
+
+  , _validate: function (attrs, options) {
+      if (!options.validate || !this.validate) return true;
+      attrs = _.extend({}, this.attributes, attrs);
+      var error = this.validationError = this.validate(attrs, options) || undefined;
+      if (!error) return true;
+      this.trigger("invalid", this, error, _.extend(options || {}, { validationError: error }));
+      return false;
+    }
+  });
+
+  var modelMethods = [ "keys", "values", "pairs", "invert", "pick", "omit" ];
+
+  _.each(modelMethods, function (method) {
+    Model.prototype[method] = function () {
+      var args = slice.call(arguments);
+      args.unshift(this.attributes);
+      return _[method].apply(_, args);
+    }
+  });
+
+  var extend = function (protoProps, staticProps) {
+    var parent = this
+      , child;
+
+    if (protoProps && _.has(protoProps, "constructor")) {
+      child = protoProps.constructor;
+    } else {
+      child = function () { return parent.apply(this, arguments); };
+    }
+
+    _.extend(child, parent, staticProps);
+
+    var Surrogate = function () { this.constructor = child; };
+    Surrogate.prototype = parent.prototype;
+    child.prototype = new Surrogate;
+
+    if (protoProps) _.extend(child.prototype, protoProps);
+
+    child.__super__ = parent.prototype;
+
+    return child;
+  }
+
+  Model.extend = extend;
+
+  var wrapError = function (model, options) {
+    var error = options.error;
+    options.error = function (resp) {
+      if (error) error(model, resp, options);
+      model.trigger("error", model, resp, options);
+    }
+  }
 }).call(this);
