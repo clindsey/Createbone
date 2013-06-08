@@ -1,11 +1,9 @@
 $(document).ready(function() {
 
   var proxy = Createbone.Model.extend();
-  /*
   var klass = Createbone.Collection.extend({
     url : function() { return '/collection'; }
   });
-  */
   var doc, collection;
 
   module("Createbone.Model", _.extend(new Environment, {
@@ -18,22 +16,22 @@ $(document).ready(function() {
         author : "Bill Shakespeare",
         length : 123
       });
-      //collection = new klass();
-      //collection.add(doc);
+      collection = new klass();
+      collection.add(doc);
     }
 
   }));
 
-  test("initialize", 1, function() {
+  test("initialize", 3, function() {
     var Model = Createbone.Model.extend({
       initialize: function() {
         this.one = 1;
-        //equal(this.collection, collection);
+        equal(this.collection, collection);
       }
     });
-    var model = new Model({}, {/*collection: collection*/});
+    var model = new Model({}, {collection: collection});
     equal(model.one, 1);
-    //equal(model.collection, collection);
+    equal(model.collection, collection);
   });
 
   test("initialize with attributes and options", 1, function() {
