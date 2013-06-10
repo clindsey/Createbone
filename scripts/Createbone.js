@@ -17,7 +17,7 @@
     Createbone = root.Createbone = {};
   }
 
-  Createbone.VERSION = '1.0.0';
+  Createbone.VERSION = '0.0.1';
 
   var _ = root._;
   if (!_ && (typeof require !== 'undefined')) _ = require('underscore');
@@ -838,8 +838,8 @@
   };
 
   var construct = function(constructor, args) {
-    function F() {
-      return constructor.apply(this, args);
+    var F = function () {
+      return constructor.apply(this, [args]);
     };
     F.prototype = constructor.prototype;
     return new F();
