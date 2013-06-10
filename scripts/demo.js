@@ -1,5 +1,5 @@
 $(function () {
-  var canvasEl = [$("#main-canvas").get(0)];
+  var canvasEl = $("#main-canvas").get(0);
 
   new StageView([canvasEl]);
 });
