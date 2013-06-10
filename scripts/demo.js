@@ -35,9 +35,6 @@ var CircleModel = Createbone.Model.extend({
   , fill: "#f00"
   , radius: 30
   }
-
-, initialize: function () {
-  }
 });
 
 var CircleView = Createbone.View.extend({
@@ -51,8 +48,8 @@ var CircleView = Createbone.View.extend({
     this.listenTo(this.model, "change:x", this.move);
     this.listenTo(this.model, "change:y", this.move);
 
-    this.el.graphics.beginFill(this.model.get("fill"));
-    this.el.graphics.drawCircle(0, 0, this.model.get("radius"));
+    this.graphics.beginFill(this.model.get("fill"));
+    this.graphics.drawCircle(0, 0, this.model.get("radius"));
 
     this.move();
   }
@@ -63,6 +60,6 @@ var CircleView = Createbone.View.extend({
   }
 
 , onMouseDown: function () {
-    console.log("i been clicked", this.model.get("fill"));
+    this.remove();
   }
 });
