@@ -17,7 +17,7 @@
     Createbone = root.Createbone = {};
   }
 
-  Createbone.VERSION = '0.0.1';
+  Createbone.VERSION = '1.0.0';
 
   var _ = root._;
   if (!_ && (typeof require !== 'undefined')) _ = require('underscore');
@@ -738,7 +738,7 @@
 
   // begin View
   var View = Createbone.View = function(args, options) {
-    if (typeof args === "object") options = args;
+    if (!_.isArray(args)) options = args;
     this.cid = _.uniqueId('view');
     options || (options = {});
     _.extend(this, _.pick(options, viewOptions));
